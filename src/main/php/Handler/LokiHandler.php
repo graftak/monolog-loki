@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright (c) 2016 - 2020 Itspire.
+ * Copyright (c) 2016-2020 Itspire.
  * This software is licensed under the BSD-3-Clause license. (see LICENSE.md for full license)
  * All Right Reserved.
  */
@@ -11,10 +11,13 @@ declare(strict_types=1);
 namespace Itspire\MonologLoki\Handler;
 
 use Itspire\MonologLoki\Formatter\LokiFormatter;
+use JsonException;
+use LogicException;
 use Monolog\Formatter\FormatterInterface;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Handler\Curl;
 use Monolog\Logger;
+use RuntimeException;
 
 class LokiHandler extends AbstractProcessingHandler
 {
@@ -36,7 +39,7 @@ class LokiHandler extends AbstractProcessingHandler
     /** custom curl options */
     protected array $customCurlOptions = [];
 
-    /** curl options which cannot be customized */
+    /** curl options, which cannot be customized */
     protected array $nonCustomizableCurlOptions = [
         CURLOPT_CUSTOMREQUEST,
         CURLOPT_RETURNTRANSFER,
@@ -44,13 +47,16 @@ class LokiHandler extends AbstractProcessingHandler
         CURLOPT_HTTPHEADER,
     ];
 
-    /** @return false|null|resource */
+    /** @var false|null|resource */
     private $connection;
+
+    /** @var string|null tenant id (HTTP header X-Scope-OrgID), if null -> no header */
+    protected ?string $tenantId = null;
 
     public function __construct(array $apiConfig, $level = Logger::DEBUG, $bubble = true)
     {
         if (!function_exists('json_encode')) {
-            throw new \RuntimeException('PHP\'s json extension is required to use Monolog\'s LokiHandler');
+            throw new RuntimeException('PHP\'s json extension is required to use Monolog\'s LokiHandler');
         }
         parent::__construct($level, $bubble);
         $this->entrypoint = $this->getEntrypoint($apiConfig['entrypoint']);
@@ -60,6 +66,9 @@ class LokiHandler extends AbstractProcessingHandler
         $this->customCurlOptions = $this->determineValidCustomCurlOptions($apiConfig['curl_options'] ?? []);
         if (isset($apiConfig['auth']['basic'])) {
             $this->basicAuth = (2 === count($apiConfig['auth']['basic'])) ? $apiConfig['auth']['basic'] : [];
+        }
+        if (isset($apiConfig['tenant_id'])) {
+            $this->tenantId = $apiConfig['tenant_id'];
         }
     }
 
@@ -81,7 +90,7 @@ class LokiHandler extends AbstractProcessingHandler
         return substr($entrypoint, 0, -1);
     }
 
-    /** @throws \JsonException */
+    /** @throws JsonException */
     public function handleBatch(array $records): void
     {
         $rows = [];
@@ -97,7 +106,7 @@ class LokiHandler extends AbstractProcessingHandler
         $this->sendPacket(['streams' => $rows]);
     }
 
-    /** @throws \JsonException */
+    /** @throws JsonException */
     private function sendPacket(array $packet): void
     {
         $payload = json_encode($packet, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -106,7 +115,7 @@ class LokiHandler extends AbstractProcessingHandler
             $this->connection = curl_init($url);
 
             if (!$this->connection) {
-                throw new \LogicException('Unable to connect to ' . $url);
+                throw new LogicException('Unable to connect to ' . $url);
             }
         }
 
@@ -131,12 +140,16 @@ class LokiHandler extends AbstractProcessingHandler
                 $curlOptions[CURLOPT_USERPWD] = implode(':', $this->basicAuth);
             }
 
+            if (null !== $this->tenantId) {
+                $curlOptions[CURLOPT_HTTPHEADER][] = 'X-Scope-OrgID: ' . $this->tenantId;
+            }
+
             curl_setopt_array($this->connection, $curlOptions);
 
             // Should Loki not be available yet,
             // too many retries attempts cause some processes to hang,
             // awaiting retries results so we limit to one attempt.
-            // Note :  Loki is a network related logging system ! It should not be the only logging system relied on.
+            // Note: Loki is a network related logging system! It should not be the only logging system relied on.
             Curl\Util::execute($this->connection, 1, false);
         }
     }
@@ -146,7 +159,7 @@ class LokiHandler extends AbstractProcessingHandler
         return new LokiFormatter($this->globalLabels, $this->globalContext, $this->systemName);
     }
 
-    /** @throws \JsonException */
+    /** @throws JsonException */
     protected function write(array $record): void
     {
         $this->sendPacket(['streams' => [$record['formatted']]]);

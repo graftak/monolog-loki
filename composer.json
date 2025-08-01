@@ -16,11 +16,11 @@
   },
   "require": {
     "php": ">=7.4",
+    "ext-curl": "*",
+    "ext-json": "*",
     "monolog/monolog": "~1.25|~2.0"
   },
   "require-dev": {
-    "ext-json": "*",
-    "ext-curl": "*",
     "pdepend/pdepend": "~2.7",
     "phploc/phploc": "~6.0",
     "roave/security-advisories": "dev-master",

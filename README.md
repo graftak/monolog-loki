@@ -26,11 +26,13 @@ $handler = new WhatFailureGroupHandler(
                     // Set here your globally applicable labels
                 ],
                 'client_name' => 'your_host_name', // Here set a unique identifier for the client host
-                // Optional : if you're using basic auth to authentify
+                // Optional: Sets tenant id (HTTP header X-Scope-OrgID), if null or missing -> no header
+                'tenant_id' => 'some-tenant',
+                // Optional: if you're using basic auth to authentify
                 'auth' => [
                     'basic' => ['user', 'password'],
                 ],
-                // Optional : Override the default curl options with custom values
+                // Optional: Override the default curl options with custom values
                 'curl_options' => [
                     CURLOPT_CONNECTTIMEOUT_MS => 500,
                     CURLOPT_TIMEOUT_MS => 600
@@ -70,8 +72,8 @@ The following options are not customizable in the configuration:
           !php/const CURLOPT_CONNECTTIMEOUT_MS: 500,
           !php/const CURLOPT_TIMEOUT_MS: 600
 ```
-Note : 
-We're currently working on a possible bundle based implementation for Symfony but at the moment, this is the way.
+Note: 
+We're currently working on a possible bundle-based implementation for Symfony but at the moment, this is the way.
 
 
 ### Configure Monolog to use Loki Handler
@@ -86,7 +88,7 @@ monolog:
       type:   whatfailuregroup
       members: [loki]
       level: debug
-      process_psr_3_messages: true # optional but we find it rather useful (Note : native handler required to use)
+      process_psr_3_messages: true # optional but we find it rather useful (Note: native handler required to use)
 ```
 
 ## Laravel App
@@ -162,12 +164,15 @@ class LokiNoFailureHandler
 Update the config accordingly: 
 
 ```php
+parse_str(env('LOKI_LABELS', ''), $loki_formatter_labels);
+
 'loki' => [
     'driver'    => 'custom',
     'level'     => env('LOG_LEVEL', 'debug'),
     'via'       => \App\Logging\LokiNoFailureHandler::class,
     'formatter_with' => [
-        'labels' => env('LOKI_LABELS', ''),
+        // LOKI_LABELS: app=laravel&env=prod
+        'labels' => $loki_formatter_labels,
         'context' => [],
         'systemName' => env('LOKI_SYSTEM_NAME', ''),
         'extraPrefix' => env('LOKI_EXTRA_PREFIX', ''),
@@ -191,7 +196,7 @@ Update the config accordingly:
 ```
 
 # Testing
-In order to test using the provided docker-compose file, you'll need an up-to-date docker/docker-compose installation
+To test using the provided docker-compose file, you'll need an up-to-date docker/docker-compose installation
 You can start the Loki container by navigating to src/main/test/docker and running 
 ```shell script
 docker-compose up
@@ -208,7 +213,7 @@ mapped to your current host ip, using the following option :
 --add-host loki:{your_host_ip}
 ```
 
-Run the test using phpunit and you can verify that posting to Loki works
+Run the test using phpunit, and you can verify that posting to Loki works
 by running the following from your host terminal : 
 ```shell script
 curl -G -s  "http://localhost:3100/loki/api/v1/query" --data-urlencode 'query={channel="test"}' | jq

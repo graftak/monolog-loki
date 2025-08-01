@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright (c) 2016 - 2020 Itspire.
+ * Copyright (c) 2016-2020 Itspire.
  * This software is licensed under the BSD-3-Clause license. (see LICENSE.md for full license)
  * All Right Reserved.
  */
@@ -10,6 +10,8 @@ declare(strict_types=1);
 
 namespace Itspire\MonologLoki\Formatter;
 
+use DateTimeInterface;
+use InvalidArgumentException;
 use Monolog\Formatter\NormalizerFormatter;
 
 class LokiFormatter extends NormalizerFormatter
@@ -48,14 +50,14 @@ class LokiFormatter extends NormalizerFormatter
         unset($record['context']['labels']);
         $record['context'] = array_merge($this->context, $record['context']);
         $preparedRecord = $this->prepareRecord($record);
-        /** @var \DateTimeInterface $datetime */
         $datetime = $record['datetime'];
+        assert($datetime instanceof DateTimeInterface);
 
         return [
             'stream' => array_merge($this->labels, $customLabels, $this->getMonologLabels($preparedRecord)),
             'values' => [
                 [
-                    (string) ($datetime->getTimestamp() * 1000000000),
+                    $datetime->format('Uu') . '000',
                     $this->toJson($this->normalize($preparedRecord)),
                 ],
             ],
@@ -70,11 +72,11 @@ class LokiFormatter extends NormalizerFormatter
                 var_export($record, true)
             );
 
-            throw new \InvalidArgumentException($exceptionMessage);
+            throw new InvalidArgumentException($exceptionMessage);
         }
 
         // This is temporary until the next LTS version of Symfony is available in which monolog 2.* will be available
-        if ($record['datetime'] instanceof \DateTimeInterface) {
+        if ($record['datetime'] instanceof DateTimeInterface) {
             $record['datetime'] = $record['datetime']->format($this->dateFormat);
         }
 
@@ -98,10 +100,10 @@ class LokiFormatter extends NormalizerFormatter
         if (
             !isset($preparedRecord['file'])
             && isset($preparedRecord[$this->contextPrefix . 'exception']['file'])
-            && preg_match("/^(.+):([\d]+)$/", $preparedRecord[$this->contextPrefix . 'exception']['file'], $matches)
+            && preg_match("/^(.+):(\d+)$/", $preparedRecord[$this->contextPrefix . 'exception']['file'], $matches)
         ) {
-            $preparedRecord['file'] = (string) $matches[1];
-            $preparedRecord['line'] = (string) $matches[2];
+            $preparedRecord['file'] = $matches[1];
+            $preparedRecord['line'] = $matches[2];
         }
 
         return $preparedRecord;
