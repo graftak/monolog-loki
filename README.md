@@ -1,4 +1,10 @@
-# Itspire - Monolog Loki
+# Itspire - Monolog Loki (BC FORK!!)
+
+**! ! ! PLEASE NOTE ! ! !**
+
+*This is a __fork__ from [itspire/monolog-loki](https://github.com/itspire/monolog-loki) for older projects still using PHP >=7.4 and Monolog 2, but with the bugfixes/improvements since version 2.0.0 applied to it. Please use https://github.com/itspire/monolog-loki or use this with care!*
+
+----
 
 This library follows the PSR-12 convention.
 

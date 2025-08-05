@@ -1,7 +1,7 @@
 {
-  "name": "itspire/monolog-loki",
+  "name": "graftak/monolog-loki",
   "type": "library",
-  "description": "Monolog handler for Grafana Loki",
+  "description": "Monolog handler for Grafana Loki (BC fork!)",
   "license": "BSD-3-Clause",
   "minimum-stability": "dev",
   "prefer-stable": true,
